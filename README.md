@@ -1,20 +1,24 @@
 # ECG Arrhythmia Engine
 
-Motor de detección de arritmias sobre ECG single-lead (DII), de la señal cruda ya adquirida a la clasificación. Pipeline: acondicionamiento → detección de latidos (Pan-Tompkins) → clasificación (CNN 1D) → servicio de inferencia vía API. No incluye la etapa de adquisición (electrodos/hardware) — eso lo resuelve el dispositivo de origen de la señal.
+Motor de detección de arritmias sobre ECG single-lead (DII), de la señal cruda ya adquirida a la clasificación. 
 
-Entrenado sobre [MIT-BIH Arrhythmia Database](https://physionet.org/content/mitdb/1.0.0/), con mapeo a taxonomía clínica [AAMI EC57](https://www.aami.org/) y validación inter-paciente.
+Pipeline: acondicionamiento → detección de latidos con Pan-Tomkins → Clasificación mediante CNN 1-D → servicio de inferencia por API. No incluye la etapa de adquisición (electrodos/hardware) — eso lo resuelve el dispositivo de origen de la señal.
+
+Sistema inicialmente pensado como complemento de ergómetro portátil desarrollado en otro proyecto.
+
+Entrenado sobre [MIT-BIH Arrhythmia Database](https://physionet.org/content/mitdb/1.0.0/), con mapeo a taxonomía clínica [AAMI EC57](https://www.aami.org/). 
 
 ## Estado actual
 
-🚧 **En desarrollo — fase de diseño y setup inicial.**
+**En desarrollo — fase de diseño y setup inicial.**
 
-Ver el [plan completo del proyecto](docs/PLAN.md) para el detalle de todas las fases, decisiones de diseño y checklist de avance.
+Ver el [plan completo del proyecto](docs/PLAN.md) para el detalle de todas las fases, decisiones de diseño y el checklist de avances.
 
 ## Por qué este proyecto
 
-Me interesa el cruce entre procesamiento de señales biomédicas y machine learning aplicado a cardiología, y quería un proyecto propio que fuera más allá de un notebook de clasificación aislado: armar la cadena completa, desde la señal cruda hasta un servicio que la consuma. Es también una forma de aplicar con rigor metodológico (validación inter-paciente, taxonomía clínica estándar) un problema que en el fondo es simple de plantear pero fácil de resolver mal.
+Dos razones. Punto 1, quiero complementar mi proyecto universitario sobre el diseño y desarrollo de un sistema de ergometría portátil con un clasificador srevido via API del que este ergómetro pueda consumir. Punto 2, Me interesa el cruce entre procesamiento de señales biomédicas y machine learning. Ya encaré proyectos de esta índole en mi tesis universitaria, orientado a la detección de Intención de movimiento de mano en pacientes con Hemiparesia y neuropatías utilizando técnicas de aprendizaje automático sobre señales de EMG. Pero en este escenario, quería encarar un proyecto propio que fuera más allá de un notebook de clasificación aislado. El objetivo es armar la cadena completa, desde la señal cruda hasta un servicio que la consuma. Es también una forma de aplicar con rigor metodológico, incluyendo validación inter paciente y taxonomía clínica estándar, un problema que en el fondo es simple de plantear pero fácil de resolver mal. El desafío fundamental que más me entusiasma radica en la investigación de fondo sobre como se resolvieron problemas similares en la práctica. Esto me llevó a leer trabajos fundacionales sobre el tema (ej. Automatic Classification of Heartbeats Using ECG Morphology and Heartbeat Interval Features, De Chazal et. al.). 
 
-## Estructura del repo
+## Estructura del repo propuesto
 
 ```
 ecg-arrhythmia-engine/
