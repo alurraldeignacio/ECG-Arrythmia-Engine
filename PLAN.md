@@ -1,39 +1,39 @@
 # Plan del proyecto — ECG Arrhythmia Engine
 
-Plan completo de trabajo, desde la descarga de MIT-BIH hasta el modelo servido vía API. Este documento es la referencia de diseño. El estado de avance real se trackea en el [README](../README.md) y en los issues/checklist de cada fase.
+Plan completo de trabajo, desde la descarga de MIT-BIH hasta el modelo servido vía API. Este documento es la referencia de diseño; el estado de avance real se trackea en el [README](../README.md) y en los issues/checklist de cada fase.
 
 ## Contexto y objetivo
 
-Motor de detección de arritmias sobre ECG de una derivación (DII), pensado como pipeline desde la señal cruda al servicio de clasificación: acondicionamiento → detección de latidos → clasificación de arritmias, sobre una señal ya adquirida (no incluye la etapa de adquisición/hardware en sí, eso lo resuelve el dispositivo de origen, originalmente pensado para un ergómetro portátil de una derivación desarrollado en otro proyecto pero buscando estandarizar las señales de entrada). El modelo se entrena sobre MIT-BIH Arrhythmia Database y se sirve como servicio de inferencia vía FastAPI.
+Motor de detección de arritmias sobre ECG single-lead (DII), pensado como pipeline "de señal cruda a clasificación": acondicionamiento → detección de latidos → clasificación de arritmias, sobre una señal ya adquirida (no incluye la etapa de adquisición/hardware en sí — eso lo resuelve el dispositivo de origen, ej. un Holter o un ergómetro portátil). El modelo se entrena sobre MIT-BIH Arrhythmia Database y se sirve como servicio de inferencia vía FastAPI.
 
-Proyecto personal para profundizar en procesamiento de señales biomédicas, machine learning aplicado a cardiología, y desarrollo backend, combinando DSP clásico (filtrado, detección de QRS) con un clasificador entrenado desde cero, y llevándolo hasta un servicio de inferencia real.
+Proyecto personal para profundizar en procesamiento de señales biomédicas y machine learning aplicado a cardiología, combinando DSP clásico (filtrado, detección de QRS) con un clasificador entrenado desde cero, y llevándolo hasta un servicio de inferencia real.
 
 ## Decisiones de diseño ya tomadas
 
 | Decisión | Elegida | Motivo |
 |---|---|---|
 | Dataset | MIT-BIH Arrhythmia Database, vía `wfdb` | Estándar de la industria, anotado por cardiólogos; 48 registros de 47 pacientes con diversidad real de tipos de arritmia — necesario para entrenar un clasificador (a diferencia de la Noise Stress Test DB, que en el fondo es solo 2 de estos mismos registros con ruido real agregado, sin la diversidad necesaria para entrenamiento; ver nota en sección de alcance sobre su uso como augmentation) |
-| Derivación | MLII (equivalente funcional a DII) | Coincide con el caso de uso de una derivación |
-| Taxonomía de clasificación | Mapeo AAMI EC57 (5 superclases: N/S/V/F/Q) | Estándar en literatura, evita el ruido de 15 o más clases originales |
+| Derivación | MLII (equivalente funcional a DII) | Coincide con el caso de uso single-lead Holter |
+| Taxonomía de clasificación | Mapeo AAMI EC57 (5 superclases: N/S/V/F/Q) | Estándar en literatura, evita el ruido de 15+ clases originales |
 | Estrategia de split | Inter-paciente (train/val/test por paciente, no por latido) | Evita data leakage; es el error #1 en proyectos con MIT-BIH |
 | Detección de picos R | Pan-Tompkins implementado desde cero, validado contra anotaciones reales | Algoritmo estándar y bien documentado en la literatura de detección de QRS; implementarlo desde cero (en vez de usar una librería) da control total sobre el pipeline y entendimiento profundo del método; entrenamiento usa anotaciones ground-truth, detector se valida aparte |
 | Arquitectura del modelo | CNN 1D en PyTorch | Adecuada para morfología de latidos de longitud fija; buen balance entre capacidad de captar patrones locales y simplicidad de entrenamiento frente a arquitecturas recurrentes o de atención |
 | Entrenamiento | Google Colab | GPU gratuita, iteración rápida |
-| Exportación | `state_dict` de PyTorch + metadata de preprocesamiento | Portabilidad y reproducibilidad de inferencia |
-| Serving | FastAPI | Framework moderno, tipado, con documentación automática (OpenAPI) y buen soporte para servir modelos de ML |
-| Deploy | Render (free tier) | Cero costo, deploy directo desde Git, Docker soportado |
-| Contenerización | Docker (imagen slim, PyTorch CPU-only) | Portabilidad, buena práctica de despliegue, buscando no saturar Render por peso |
+| Exportación | `state_dict` de PyTorch + metadata de preprocesamiento (+ ONNX opcional) | Portabilidad, reproducibilidad de inferencia |
+| Serving | FastAPI | Framework moderno, tipado, con documentación automática (OpenAPI/Swagger) y buen soporte para servir modelos de ML |
+| Deploy | Render (free tier, sin tarjeta) | Zero costo, deploy directo desde Git, Docker soportado |
+| Contenerización | Docker (imagen slim, PyTorch CPU-only) | Portabilidad, buena práctica de despliegue |
 
 ## FASE 0 — Definición de alcance
 
-- [ ] Confirmar tamaño de ventana por latido (muestras antes/después del pico R, basado en otros trabajos)
-- [ ] Confirmar criterio de split inter-paciente (split estándar de De Chazal DS1/DS2 vs. split propio documentado)
-- [ ] Confirmar nivel de granularidad: clasificación por latido individual 
+- [ X ] Confirmar tamaño de ventana por latido (muestras antes/después del pico R)
+- [ X ] Confirmar criterio de split inter-paciente (split estándar de De Chazal DS1/DS2 vs. split propio documentado)
+- [ X ] Confirmar nivel de granularidad: clasificación por latido individual (beat-by-beat)
 
 ## FASE 1 — Obtención y organización del dataset
 
-- [ ] Descargar MIT-BIH completa vía `wfdb`
-- [ ] Verificar qué registros tienen canal 1 = MLII, descartar/separar el resto
+- [ X ] Descargar MIT-BIH completa vía `wfdb`
+- [ X ] Verificar qué registros tienen canal 1 = MLII, descartar/separar el resto
 - [ ] Definir y documentar el split de pacientes (train/val/test)
 
 ## FASE 2 — Acondicionamiento de la señal
@@ -55,7 +55,8 @@ Proyecto personal para profundizar en procesamiento de señales biomédicas, mac
 
 ## FASE 4 — Armado del dataset de latidos
 
-- [ ] Segmentar ventanas fijas centradas en cada pico R anotado
+- [ ] Segmentar ventanas centradas en cada pico R anotado, con **clip adaptativo** al pico vecino más cercano para evitar solapamiento en RR cortos (ver [docs/DECISIONS.md #1](DECISIONS.md))
+- [ ] Calcular features de intervalo RR por latido (RR previo, RR posterior, RR promedio local) para usar como input adicional del modelo, no solo la ventana de señal (ver [docs/DECISIONS.md #1](DECISIONS.md))
 - [ ] Mapear símbolos de anotación MIT-BIH → 5 superclases AAMI
 - [ ] Analizar y documentar distribución/desbalance de clases
 - [ ] Definir estrategia de balance (class weights / oversampling / augmentation)
@@ -64,7 +65,7 @@ Proyecto personal para profundizar en procesamiento de señales biomédicas, mac
 
 ## FASE 5 — Arquitectura del modelo (CNN 1D)
 
-- [ ] Definir arquitectura (bloques Conv1D → BatchNorm → ReLU → Pool, GAP, FC final)
+- [ ] Definir arquitectura (bloques Conv1D → BatchNorm → ReLU → Pool, GAP, FC final); evaluar rama adicional para incorporar features de intervalo RR (concatenados antes de la FC final) junto a la salida convolucional de la ventana de señal
 - [ ] Definir loss (cross-entropy con class weights)
 - [ ] Definir optimizer + scheduler (Adam + ReduceLROnPlateau)
 - [ ] Definir regularización (dropout, weight decay, early stopping por F1 de validación)
@@ -108,7 +109,7 @@ Proyecto personal para profundizar en procesamiento de señales biomédicas, mac
 - [ ] Verificar cold start / comportamiento tras inactividad
 - [ ] Frontend mínimo de demo (opcional — Streamlit o React/Canvas)
 
-## FASE 11 — Presentación
+## FASE 11 — Portfolio
 
 - [ ] README de nivel case-study (decisiones, resultados, limitaciones)
 - [ ] Gráficos de presentación (señal filtrada, picos detectados, matriz de confusión, curvas de entrenamiento, latidos coloreados por clase)
@@ -117,24 +118,25 @@ Proyecto personal para profundizar en procesamiento de señales biomédicas, mac
 
 ## Alcance: post-análisis, no tiempo real
 
-El sistema está diseñado para un **análisis post-grabación**, no como clasificación en streaming durante el esfuerzo. La señal se graba completa (o por segmentos) y se envía a, por ejemplo, `POST /predict/segment` para su análisis.
+El sistema está diseñado como **análisis post-grabación (batch)**, no como clasificación en streaming durante el esfuerzo. La señal se graba completa (o por segmentos) y se envía a `POST /predict/segment` para su análisis — el mismo modelo de uso que un Holter enviado a laboratorio.
 
-Esto es una decisión de diseño consciente, no una limitación por poder de cómputo o velocidad de inferencia: el preprocesamiemnto, Pan-Tompkins, y una CNN 1D de este tamaño son livianos y correrían perfectamente en tiempo real. La razón de ir por post grabacion es de **validez de dominio** (ver abajo), no de performance.
+Esto es una decisión de diseño consciente, no una limitación de cómputo: Pan-Tompkins + una CNN 1D de este tamaño son livianos y correrían perfectamente en tiempo real. La razón de ir por batch es de **validez de dominio** (ver abajo), no de performance.
 
-### Sobre la integración con el Ergómetro Portátil (proyecto relacionado)
+### Sobre la integración con el Ergómetro Portátil (ver proyecto relacionado)
 
-Existe una motivación adicional para esta integración: la ergometría (prueba de esfuerzo) es una herramienta estándar de cardiología que nace del hecho de que precisamente hay arritmias que solo se manifiestan bajo esfuerzo físico y no aparecen en un registro de reposo. Conectar el motor de clasificación a la señal del ergómetro tiene sentido de caso de uso.
+Existe una motivación clínica real para esta integración: la ergometría (prueba de esfuerzo) es una herramienta estándar de cardiología precisamente porque hay arritmias que solo se manifiestan bajo esfuerzo físico y no aparecen en un registro de reposo. Conectar el motor de clasificación a la señal del ergómetro tiene sentido de caso de uso.
 
-Sin embargo, hay un desajuste de dominio que es fundamental destacar de entrada: **MIT-BIH es señal de reposo / Holter ambulatorio**, con un perfil de ruido distinto al de una sesión de esfuerzo físico (estas sesiones se caracterizan por incorporar artefacto de movimiento, ruido muscular por el esfuerzo, y línea de base afectada por respiración acelerada, fundamentalmente). Un modelo entrenado exclusivamente sobre MIT-BIH puede degradar su desempeño sobre señal de esfuerzo real, y esto no está validado en el alcance actual del proyecto.
+Sin embargo, hay un desajuste de dominio a documentar: **MIT-BIH es señal de reposo / Holter ambulatorio**, con un perfil de ruido distinto al de una sesión de esfuerzo físico (artefacto de movimiento, ruido muscular por el esfuerzo, línea de base afectada por respiración acelerada). Un modelo entrenado exclusivamente sobre MIT-BIH puede degradar su desempeño sobre señal de esfuerzo real, y esto no está validado en el alcance actual del proyecto.
 
 **Por lo tanto:**
-- La integración ergómetro con motor de arritmias se plantea como análisis post-sesión (se graba la sesión de esfuerzo, se analiza después), no como alerta en tiempo real durante el ejercicio.
+- La integración ergómetro → motor de arritmias se plantea como análisis post-sesión (se graba la sesión de esfuerzo, se analiza después), no como alerta en tiempo real durante el ejercicio.
 - Cualquier claim de desempeño del modelo aplica al dominio de entrenamiento (reposo/ambulatorio), no a señal de esfuerzo, hasta validar lo contrario.
-- Extensión futura posible: validar robustez del modelo contra datasets de señal ruidosa (ej. [MIT-BIH Noise Stress Test Database](https://physionet.org/content/nstdb/1.0.0/)) antes de considerar cualquier escenario de tiempo real. Nótese que la NSTDB, en rigor, es en sí misma una forma de data augmentation: toma solo 2 registros limpios de la Arrhythmia Database (118 y 119) y les agrega ruido **real grabado** (no sintético) de tres tipos — deriva de línea base, ruido muscular y artefacto de movimiento de electrodo, obtenidos de voluntarios activos — en distintos niveles de SNR. Es decir que no reemplaza a la Arrhythmia Database como fuente de entrenamiento porque no tiene diversidad de pacientes y arritmias, al basarse en solo 2 registros, pero sus grabaciones de ruido (`bw`, `ma`, `em`) sí son un insumo mejor que ruido gaussiano genérico para la estrategia de augmentation de la Fase 4 (ver nota de Fase 4).
+- Extensión futura posible: validar robustez del modelo contra datasets de señal ruidosa (ej. [MIT-BIH Noise Stress Test Database](https://physionet.org/content/nstdb/1.0.0/)) antes de considerar cualquier escenario de tiempo real. Nótese que la NSTDB, en rigor, es en sí misma una forma de data augmentation: toma solo 2 registros limpios de la Arrhythmia Database (118 y 119) y les agrega ruido **real grabado** (no sintético) de tres tipos — deriva de línea base, ruido muscular y artefacto de movimiento de electrodo, obtenidos de voluntarios activos — en distintos niveles de SNR. Por eso no reemplaza a la Arrhythmia Database como fuente de entrenamiento (carece de diversidad de pacientes y arritmias, al basarse en solo 2 registros), pero sus grabaciones de ruido (`bw`, `ma`, `em`) sí son un insumo mejor que ruido gaussiano genérico para la estrategia de augmentation de la Fase 4 — ver nota ahí.
 
 ## Limitaciones a declarar explícitamente
 
 - MIT-BIH es una base de datos de laboratorio; no representa completamente el ruido de un Holter ambulatorio real, y menos aún el de una sesión de esfuerzo físico.
-- El modelo no está validado sobre señal de ejercicio/esfuerzo (ver sección de alcance arriba).
-- Prototipo de clasificación, no dispositivo médico validado clínicamente. Proyecto de alcance educacional.
+- El modelo no está validado sobre señal de ejercicio/esfuerzo — ver sección de alcance arriba.
+- El diseño clasifica latido por latido (morfología + intervalo local); no está pensado para detectar arritmias que son patrones de ritmo a través de muchos latidos (ej. fibrilación auricular) — ver [docs/DECISIONS.md #1](DECISIONS.md).
+- Prototipo de clasificación, no dispositivo médico validado clínicamente.
 - No reemplaza revisión médica.
