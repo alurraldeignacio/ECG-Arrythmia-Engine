@@ -26,15 +26,15 @@ Proyecto personal para profundizar en procesamiento de señales biomédicas y ma
 
 ## FASE 0 — Definición de alcance
 
-- [ X ] Confirmar tamaño de ventana por latido (muestras antes/después del pico R)
-- [ X ] Confirmar criterio de split inter-paciente (split estándar de De Chazal DS1/DS2 vs. split propio documentado)
-- [ X ] Confirmar nivel de granularidad: clasificación por latido individual (beat-by-beat)
+- [X] Confirmar tamaño de ventana por latido (muestras antes/después del pico R)
+- [X] Confirmar criterio de split inter-paciente (split estándar de De Chazal DS1/DS2 vs. split propio documentado)
+- [X] Confirmar nivel de granularidad: clasificación por latido individual (beat-by-beat)
 
 ## FASE 1 — Obtención y organización del dataset
 
-- [ X ] Descargar MIT-BIH completa vía `wfdb`
-- [ X ] Verificar qué registros tienen canal 1 = MLII, descartar/separar el resto
-- [ ] Definir y documentar el split de pacientes (train/val/test)
+- [X] Descargar MIT-BIH completa vía `wfdb`
+- [X] Verificar qué registros tienen canal 1 = MLII, descartar/separar el resto
+- [X] Definir y documentar el split de pacientes (train/val/test)
 
 ## FASE 2 — Acondicionamiento de la señal
 
