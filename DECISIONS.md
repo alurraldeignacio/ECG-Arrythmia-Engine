@@ -24,11 +24,11 @@ También aprendí que de Chazal et al. no clasifican solo por morfología de la 
 - El modelo va a recibir, además de la ventana de señal, **features explícitos de intervalo RR** (RR previo, RR posterior, RR promedio local) como input adicional — no solo la forma cruda del latido.
 - Limitación a documentar: este diseño (clasificación AAMI a nivel de latido individual, con features de intervalo local) está pensado para arritmias que se manifiestan como forma de latido anómala y/o timing puntual (ectopías ventriculares/auriculares). No está diseñado para detectar arritmias que son patrones de ritmo a través de muchos latidos (ej. fibrilación auricular, donde el QRS individual suele ser morfológicamente normal y lo anómalo es la irregularidad del ritmo a lo largo de una secuencia larga) — eso requeriría un enfoque de clasificación de secuencia/ritmo sobre ventanas más largas, fuera del alcance actual.
 
-### [2] — Selección del canal MLLII por nombre
+### [2] — Selección del canal MLII por nombre
 
 **Contexto:** Fase 1. Necesito filtrar qué registros de la MIT-BIH usar. Sabemos que necesitamos las que tienen la derivación MLII (equivalente funcional a DII, la derivación objetivo del proyecto).
 
-**Primera aproximación:** Filtrar por posición fija contemplando que la mayoría de las veces canal[0] contiene MLLII.
+**Primera aproximación:** Filtrar por posición fija contemplando que la mayoría de las veces canal[0] contiene MLII.
 
 **Qué aprendí:** Existen tres de los 48 registros que no tienen MLII en el primer canal. En particular, de estos 3, el 114 es el que nos preocupa debido a que forma parte del split de de Chazal et al. Para utilizar el split de de Chazal et al de forma metodologicamente correcta para comparaciones con otros trabajos, necesitamos incorporar todos sus registros, incluido el 114. Necesitamos entonces una forma de incorporar todos los registros de de Chazal et al a nuestros sets de validacion y entrenamiento independientemente de donde almacenan MLII.
 
